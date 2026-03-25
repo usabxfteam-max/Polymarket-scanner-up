@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-const API_KEY = process.env.ODDS_API_KEY || "02e88317a9ef0af99d9dbf1f64f6bf4d23dd447f8aa1e88557c7f7a17baa5b2d";
+const API_KEY = process.env.ODDS_API_KEY || "47cd04006934b62c9bfcfc777983c3c92025a2e01d108b1278baf4f2042ff459";
 const BASE_URL = "https://api.odds-api.io/v3";
 const DEFAULT_EDGE_THRESHOLD = 0.03;
 
