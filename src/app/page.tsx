@@ -7,16 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Separator } from '@/components/ui/separator'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Label } from '@/components/ui/label'
 import { Play, TrendingUp, TrendingDown, Trophy, BarChart3, Zap, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react'
-
-interface DevigResult {
-  emProb: number
-  mptoProb: number
-  orProb: number
-  avgProb: number
-  margin: number
-}
 
 interface GameAnalysis {
   homeTeam: string
@@ -25,20 +16,23 @@ interface GameAnalysis {
   sport: string
   polymarketHomeProb: number
   polymarketAwayProb: number
-  trueHomeProb: number
-  trueAwayProb: number
+  sportsbookHomeProb: number
+  sportsbookAwayProb: number
   homeEdge: number
   awayEdge: number
   sportsbookOdds: {
     home: number
     away: number
-    books: string[]
+    homeRaw: number
+    awayRaw: number
     polyHome: number
     polyAway: number
   }
+  sportsbookHold: number
+  polymarketHold: number
   isValueBet: boolean
   valueSide: string | null
-  devigResult: DevigResult
+  sportsbookName: string
 }
 
 interface ScanResponse {
@@ -48,6 +42,7 @@ interface ScanResponse {
   totalAnalyzed: number
   apiCallsUsed: number
   rateLimitRemaining: number
+  sportsbookName?: string
   error?: string
 }
 
@@ -210,6 +205,19 @@ const SPORTS_CATEGORIES = {
 // Flatten all sports for quick lookup
 const ALL_SPORTS = Object.values(SPORTS_CATEGORIES).flatMap(cat => cat.sports)
 
+function formatAmericanOdds(decimal: number, raw: number): string {
+  // If we have raw American odds, use them
+  if (raw && Math.abs(raw) > 1) {
+    return raw > 0 ? `+${raw}` : `${raw}`;
+  }
+  // Convert decimal to American
+  if (decimal >= 2) {
+    return `+${Math.round((decimal - 1) * 100)}`;
+  } else {
+    return `${Math.round(-100 / (decimal - 1))}`;
+  }
+}
+
 export default function Home() {
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<ScanResponse | null>(null)
@@ -299,7 +307,7 @@ export default function Home() {
             Polymarket vs Sportsbook Scanner
           </h1>
           <p className="text-slate-400 text-lg">
-            Finding value by removing bookmaker margin using EM, MPTO & OR devigging methods
+            Compare Polymarket odds with {result?.sportsbookName || 'Cloudbet'} sportsbook odds
           </p>
         </div>
 
@@ -532,39 +540,50 @@ export default function Home() {
 
                       <Separator className="my-4 bg-slate-700" />
 
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
-                        <div>
-                          <p className="text-slate-400">True Probability</p>
-                          <p className="text-white font-semibold">
-                            {((game.valueSide === 'home' ? game.trueHomeProb : game.trueAwayProb) * 100).toFixed(1)}%
-                          </p>
+                      {/* Odds Comparison */}
+                      <div className="grid grid-cols-2 gap-6 mb-4">
+                        {/* Sportsbook Odds */}
+                        <div className="p-4 bg-blue-900/30 rounded-lg border border-blue-500/30">
+                          <div className="flex items-center justify-between mb-3">
+                            <h4 className="text-blue-300 font-semibold text-lg">{game.sportsbookName}</h4>
+                            <div className="px-3 py-1 bg-blue-500/20 rounded-full">
+                              <span className="text-blue-300 text-sm font-bold">Hold: {game.sportsbookHold.toFixed(2)}%</span>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="text-center">
+                              <p className="text-slate-400 text-xs mb-1">{game.homeTeam}</p>
+                              <p className="text-2xl font-bold text-white">{formatAmericanOdds(game.sportsbookOdds.home, game.sportsbookOdds.homeRaw)}</p>
+                              <p className="text-blue-300 text-sm">{(game.sportsbookHomeProb * 100).toFixed(1)}%</p>
+                            </div>
+                            <div className="text-center">
+                              <p className="text-slate-400 text-xs mb-1">{game.awayTeam}</p>
+                              <p className="text-2xl font-bold text-white">{formatAmericanOdds(game.sportsbookOdds.away, game.sportsbookOdds.awayRaw)}</p>
+                              <p className="text-blue-300 text-sm">{(game.sportsbookAwayProb * 100).toFixed(1)}%</p>
+                            </div>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-slate-400">Polymarket Price</p>
-                          <p className="text-white font-semibold">
-                            {((game.valueSide === 'home' ? game.polymarketHomeProb : game.polymarketAwayProb) * 100).toFixed(1)}%
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-slate-400">Sportsbook Odds</p>
-                          <p className="text-white font-semibold">
-                            {game.sportsbookOdds.home.toFixed(2)} / {game.sportsbookOdds.away.toFixed(2)}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-slate-400">Margin</p>
-                          <p className="text-white font-semibold">
-                            {(game.devigResult.margin * 100).toFixed(2)}%
-                          </p>
-                        </div>
-                      </div>
 
-                      <div className="mt-4 p-3 bg-slate-800/50 rounded-lg">
-                        <p className="text-xs text-slate-400 mb-1">Devigging Methods</p>
-                        <div className="flex gap-4 text-sm">
-                          <span className="text-slate-300">EM: {(game.devigResult.emProb * 100).toFixed(1)}%</span>
-                          <span className="text-slate-300">MPTO: {(game.devigResult.mptoProb * 100).toFixed(1)}%</span>
-                          <span className="text-slate-300">OR: {(game.devigResult.orProb * 100).toFixed(1)}%</span>
+                        {/* Polymarket Odds */}
+                        <div className="p-4 bg-purple-900/30 rounded-lg border border-purple-500/30">
+                          <div className="flex items-center justify-between mb-3">
+                            <h4 className="text-purple-300 font-semibold text-lg">Polymarket</h4>
+                            <div className="px-3 py-1 bg-purple-500/20 rounded-full">
+                              <span className="text-purple-300 text-sm font-bold">Hold: {game.polymarketHold.toFixed(2)}%</span>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="text-center">
+                              <p className="text-slate-400 text-xs mb-1">{game.homeTeam}</p>
+                              <p className="text-2xl font-bold text-white">{(game.polymarketHomeProb * 100).toFixed(1)}¢</p>
+                              <p className="text-purple-300 text-sm">{(game.polymarketHomeProb * 100).toFixed(1)}%</p>
+                            </div>
+                            <div className="text-center">
+                              <p className="text-slate-400 text-xs mb-1">{game.awayTeam}</p>
+                              <p className="text-2xl font-bold text-white">{(game.polymarketAwayProb * 100).toFixed(1)}¢</p>
+                              <p className="text-purple-300 text-sm">{(game.polymarketAwayProb * 100).toFixed(1)}%</p>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </CardContent>
@@ -594,22 +613,26 @@ export default function Home() {
                   {result.otherGames.slice(0, 12).map((game, idx) => (
                     <Card key={idx} className="bg-slate-800/30 border-slate-700/50">
                       <CardContent className="p-4">
-                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                          <div>
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                          <div className="flex-1">
                             <p className="text-white font-medium">
                               {game.homeTeam} vs {game.awayTeam}
                             </p>
                             <p className="text-slate-500 text-sm">{game.league}</p>
                           </div>
-                          <div className="flex items-center gap-4 text-sm">
-                            <div>
-                              <span className="text-slate-400">True: </span>
-                              <span className="text-white">{(game.trueHomeProb * 100).toFixed(1)}%</span>
+                          <div className="flex items-center gap-6">
+                            {/* Sportsbook Hold */}
+                            <div className="text-center px-3 py-2 bg-blue-900/30 rounded-lg">
+                              <p className="text-xs text-blue-300 mb-1">{game.sportsbookName}</p>
+                              <p className="text-lg font-bold text-blue-400">{game.sportsbookHold.toFixed(2)}%</p>
+                              <p className="text-xs text-slate-400">Hold</p>
                             </div>
-                            <div>
-                              <span className="text-slate-400">Poly: </span>
-                              <span className="text-white">{(game.polymarketHomeProb * 100).toFixed(1)}%</span>
+                            {/* Odds */}
+                            <div className="text-center px-3 py-2 bg-slate-700/30 rounded-lg">
+                              <p className="text-xs text-slate-400 mb-1">Odds</p>
+                              <p className="text-sm text-white">{formatAmericanOdds(game.sportsbookOdds.home, game.sportsbookOdds.homeRaw)} / {formatAmericanOdds(game.sportsbookOdds.away, game.sportsbookOdds.awayRaw)}</p>
                             </div>
+                            {/* Edge */}
                             <div className={`flex items-center gap-1 ${game.homeEdge >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                               {game.homeEdge >= 0 ? (
                                 <TrendingUp className="w-4 h-4" />
@@ -636,7 +659,7 @@ export default function Home() {
 
         {/* Footer */}
         <footer className="mt-12 text-center text-slate-500 text-sm">
-          <p>Powered by Odds-API.io | Devigging: EM, MPTO, OR (Averaged)</p>
+          <p>Powered by Odds-API.io | Comparing Polymarket vs {result?.sportsbookName || 'Sportsbook'} odds</p>
         </footer>
       </div>
     </div>

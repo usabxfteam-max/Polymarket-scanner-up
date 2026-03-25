@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 
 const API_KEY = process.env.ODDS_API_KEY || "47cd04006934b62c9bfcfc777983c3c92025a2e01d108b1278baf4f2042ff459";
 const BASE_URL = "https://api.odds-api.io/v3";
-const DEFAULT_EDGE_THRESHOLD = 0.03;
 
 const SPORTS_CONFIG: Record<string, {
   apiSlug: string;
@@ -135,14 +134,6 @@ const SPORTS_CONFIG: Record<string, {
   entertainment: { apiSlug: "entertainment", emoji: "🎬", leagueKeywords: [], displayName: "Entertainment" },
 };
 
-interface DevigResult {
-  emProb: number;
-  mptoProb: number;
-  orProb: number;
-  avgProb: number;
-  margin: number;
-}
-
 interface GameAnalysis {
   homeTeam: string;
   awayTeam: string;
@@ -150,85 +141,23 @@ interface GameAnalysis {
   sport: string;
   polymarketHomeProb: number;
   polymarketAwayProb: number;
-  trueHomeProb: number;
-  trueAwayProb: number;
+  sportsbookHomeProb: number;
+  sportsbookAwayProb: number;
   homeEdge: number;
   awayEdge: number;
   sportsbookOdds: {
     home: number;
     away: number;
-    books: string[];
+    homeRaw: number;
+    awayRaw: number;
     polyHome: number;
     polyAway: number;
   };
+  sportsbookHold: number;
+  polymarketHold: number;
   isValueBet: boolean;
   valueSide: string | null;
-  devigResult: DevigResult;
-}
-
-// Devigging Calculator
-function americanToDecimal(odds: number): number {
-  if (odds > 0) {
-    return (odds / 100) + 1;
-  } else {
-    return (100 / Math.abs(odds)) + 1;
-  }
-}
-
-function emDevig(impliedProbs: number[]): number[] {
-  const n = impliedProbs.length;
-  const margin = impliedProbs.reduce((a, b) => a + b, 0) - 1;
-  return impliedProbs.map(p => p - (margin / n));
-}
-
-function mptoDevigDecimal(decimalOdds: number[]): number[] {
-  const impliedProbs = decimalOdds.map(d => 1 / d);
-  const margin = impliedProbs.reduce((a, b) => a + b, 0) - 1;
-  const sumOdds = decimalOdds.reduce((a, b) => a + b, 0);
-  const weights = decimalOdds.map(d => d / sumOdds);
-  return impliedProbs.map((imp, i) => imp - (margin * weights[i]));
-}
-
-function orDevigDecimal(decimalOdds: number[], tolerance: number = 0.0001, maxIter: number = 1000): number[] {
-  let cLow = 0.0, cHigh = 1.0;
-  let c = 0.5;
-
-  for (let i = 0; i < maxIter; i++) {
-    c = (cLow + cHigh) / 2;
-    const total = decimalOdds.reduce((sum, d) => sum + 1 / (d * (1 + c)), 0);
-    if (Math.abs(total - 1.0) < tolerance) break;
-    if (total > 1.0) {
-      cLow = c;
-    } else {
-      cHigh = c;
-    }
-  }
-  return decimalOdds.map(d => 1 / (d * (1 + c)));
-}
-
-function fullDevigAnalysisDecimal(homeDecimal: number, awayDecimal: number): DevigResult {
-  const homeImp = 1 / homeDecimal;
-  const awayImp = 1 / awayDecimal;
-  const margin = homeImp + awayImp - 1;
-
-  const emProbs = emDevig([homeImp, awayImp]);
-  const emHome = emProbs[0];
-
-  const mptoProbs = mptoDevigDecimal([homeDecimal, awayDecimal]);
-  const mptoHome = mptoProbs[0];
-
-  const orProbs = orDevigDecimal([homeDecimal, awayDecimal]);
-  const orHome = orProbs[0];
-
-  const avgHome = (emHome + mptoHome + orHome) / 3;
-
-  return {
-    emProb: emHome,
-    mptoProb: mptoHome,
-    orProb: orHome,
-    avgProb: avgHome,
-    margin
-  };
+  sportsbookName: string;
 }
 
 // API Client
@@ -315,14 +244,24 @@ function parseMoneylineOdds(bookmakerData: unknown[]): { home: number; away: num
         const homeRaw = oddsData.home ? parseFloat(String(oddsData.home)) : 0;
         const awayRaw = oddsData.away ? parseFloat(String(oddsData.away)) : 0;
 
+        // Convert American odds to decimal if needed
         let homeDecimal = homeRaw;
         let awayDecimal = awayRaw;
 
+        // If odds are in American format (typically > 100 or < -100)
         if (Math.abs(homeRaw) > 100 || homeRaw < -100) {
-          homeDecimal = americanToDecimal(homeRaw);
+          if (homeRaw > 0) {
+            homeDecimal = (homeRaw / 100) + 1;
+          } else {
+            homeDecimal = (100 / Math.abs(homeRaw)) + 1;
+          }
         }
         if (Math.abs(awayRaw) > 100 || awayRaw < -100) {
-          awayDecimal = americanToDecimal(awayRaw);
+          if (awayRaw > 0) {
+            awayDecimal = (awayRaw / 100) + 1;
+          } else {
+            awayDecimal = (100 / Math.abs(awayRaw)) + 1;
+          }
         }
 
         return { home: homeDecimal, away: awayDecimal, homeRaw, awayRaw };
@@ -369,32 +308,33 @@ function analyzeGame(event: unknown, oddsData: unknown, polymarketName: string, 
   const bookmakers = odds.bookmakers as Record<string, unknown> | null;
   if (!bookmakers) return null;
 
-  let polymarketOdds: { home: number; away: number } | null = null;
+  let polymarketOdds: { home: number; away: number; homeRaw: number; awayRaw: number } | null = null;
   if (polymarketName && polymarketName in bookmakers) {
     polymarketOdds = parseMoneylineOdds(bookmakers[polymarketName] as unknown[]);
   }
 
-  let sportsbookOdds: { home: number; away: number } | null = null;
-  const sportsbookUsed: string[] = [];
+  let sportsbookOdds: { home: number; away: number; homeRaw: number; awayRaw: number } | null = null;
   if (sportsbookName && sportsbookName in bookmakers) {
     sportsbookOdds = parseMoneylineOdds(bookmakers[sportsbookName] as unknown[]);
-    if (sportsbookOdds) {
-      sportsbookUsed.push(sportsbookName);
-    }
   }
 
   if (!polymarketOdds || !sportsbookOdds) return null;
   if (sportsbookOdds.home === 0 || sportsbookOdds.away === 0) return null;
 
+  // Calculate implied probabilities
   const polyHomeProb = 1 / polymarketOdds.home;
   const polyAwayProb = 1 / polymarketOdds.away;
+  
+  const sportsbookHomeProb = 1 / sportsbookOdds.home;
+  const sportsbookAwayProb = 1 / sportsbookOdds.away;
 
-  const devigResult = fullDevigAnalysisDecimal(sportsbookOdds.home, sportsbookOdds.away);
-  const trueHomeProb = devigResult.avgProb;
-  const trueAwayProb = 1 - trueHomeProb;
+  // Calculate holds (margin/vig)
+  const polymarketHold = (polyHomeProb + polyAwayProb - 1) * 100;
+  const sportsbookHold = (sportsbookHomeProb + sportsbookAwayProb - 1) * 100;
 
-  const homeEdge = trueHomeProb - polyHomeProb;
-  const awayEdge = trueAwayProb - polyAwayProb;
+  // Calculate edge (using raw sportsbook probabilities, no devigging)
+  const homeEdge = sportsbookHomeProb - polyHomeProb;
+  const awayEdge = sportsbookAwayProb - polyAwayProb;
 
   const isValueBet = homeEdge >= edgeThreshold || awayEdge >= edgeThreshold;
   let valueSide: string | null = null;
@@ -411,20 +351,23 @@ function analyzeGame(event: unknown, oddsData: unknown, polymarketName: string, 
     sport: sportName,
     polymarketHomeProb: polyHomeProb,
     polymarketAwayProb: polyAwayProb,
-    trueHomeProb,
-    trueAwayProb,
+    sportsbookHomeProb,
+    sportsbookAwayProb,
     homeEdge,
     awayEdge,
     sportsbookOdds: {
       home: sportsbookOdds.home,
       away: sportsbookOdds.away,
-      books: sportsbookUsed,
+      homeRaw: sportsbookOdds.homeRaw,
+      awayRaw: sportsbookOdds.awayRaw,
       polyHome: polymarketOdds.home,
       polyAway: polymarketOdds.away
     },
+    sportsbookHold,
+    polymarketHold,
     isValueBet,
     valueSide,
-    devigResult
+    sportsbookName
   };
 }
 
@@ -529,7 +472,8 @@ export async function POST(request: Request) {
       totalAnalyzed: allResults.length,
       apiCallsUsed: requestsMade,
       rateLimitRemaining,
-      sportsConfig: SPORTS_CONFIG
+      sportsConfig: SPORTS_CONFIG,
+      sportsbookName
     });
 
   } catch (error) {
