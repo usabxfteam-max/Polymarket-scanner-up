@@ -307,7 +307,7 @@ export default function Home() {
             Polymarket vs Sportsbook Scanner
           </h1>
           <p className="text-slate-400 text-lg">
-            Compare Polymarket odds with {result?.sportsbookName || 'Cloudbet'} sportsbook odds
+            Polymarket = True Odds | Find value at {result?.sportsbookName || 'Rainbet'}
           </p>
         </div>
 
@@ -523,7 +523,7 @@ export default function Home() {
 
                         <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
                           <div className="text-center px-6 py-3 bg-emerald-500/20 rounded-lg border border-emerald-500/30">
-                            <p className="text-sm text-emerald-300 mb-1">BET ON</p>
+                            <p className="text-sm text-emerald-300 mb-1">BET AT {game.sportsbookName.toUpperCase()}</p>
                             <p className="text-lg font-bold text-white">
                               {game.valueSide === 'home' ? game.homeTeam : game.awayTeam}
                             </p>
@@ -542,6 +542,32 @@ export default function Home() {
 
                       {/* Odds Comparison */}
                       <div className="grid grid-cols-2 gap-6 mb-4">
+                        {/* Polymarket Odds - TRUSTED SOURCE */}
+                        <div className="p-4 bg-emerald-900/30 rounded-lg border border-emerald-500/50">
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-2">
+                              <h4 className="text-emerald-300 font-semibold text-lg">Polymarket</h4>
+                              <span className="px-2 py-0.5 bg-emerald-500/30 rounded text-emerald-300 text-xs font-bold">TRUSTED SOURCE</span>
+                            </div>
+                            <div className="px-3 py-1 bg-emerald-500/20 rounded-full">
+                              <span className="text-emerald-300 text-sm font-bold">Hold: {game.polymarketHold.toFixed(2)}%</span>
+                            </div>
+                          </div>
+                          <p className="text-xs text-emerald-400 mb-2">True Probability</p>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="text-center">
+                              <p className="text-slate-400 text-xs mb-1">{game.homeTeam}</p>
+                              <p className="text-2xl font-bold text-white">{(game.polymarketHomeProb * 100).toFixed(1)}%</p>
+                              <p className="text-emerald-300 text-sm">{(game.polymarketHomeProb * 100).toFixed(1)}¢</p>
+                            </div>
+                            <div className="text-center">
+                              <p className="text-slate-400 text-xs mb-1">{game.awayTeam}</p>
+                              <p className="text-2xl font-bold text-white">{(game.polymarketAwayProb * 100).toFixed(1)}%</p>
+                              <p className="text-emerald-300 text-sm">{(game.polymarketAwayProb * 100).toFixed(1)}¢</p>
+                            </div>
+                          </div>
+                        </div>
+
                         {/* Sportsbook Odds */}
                         <div className="p-4 bg-blue-900/30 rounded-lg border border-blue-500/30">
                           <div className="flex items-center justify-between mb-3">
@@ -550,6 +576,7 @@ export default function Home() {
                               <span className="text-blue-300 text-sm font-bold">Hold: {game.sportsbookHold.toFixed(2)}%</span>
                             </div>
                           </div>
+                          <p className="text-xs text-blue-400 mb-2">Bet Here</p>
                           <div className="grid grid-cols-2 gap-4">
                             <div className="text-center">
                               <p className="text-slate-400 text-xs mb-1">{game.homeTeam}</p>
@@ -560,28 +587,6 @@ export default function Home() {
                               <p className="text-slate-400 text-xs mb-1">{game.awayTeam}</p>
                               <p className="text-2xl font-bold text-white">{formatAmericanOdds(game.sportsbookOdds.away, game.sportsbookOdds.awayRaw)}</p>
                               <p className="text-blue-300 text-sm">{(game.sportsbookAwayProb * 100).toFixed(1)}%</p>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Polymarket Odds */}
-                        <div className="p-4 bg-purple-900/30 rounded-lg border border-purple-500/30">
-                          <div className="flex items-center justify-between mb-3">
-                            <h4 className="text-purple-300 font-semibold text-lg">Polymarket</h4>
-                            <div className="px-3 py-1 bg-purple-500/20 rounded-full">
-                              <span className="text-purple-300 text-sm font-bold">Hold: {game.polymarketHold.toFixed(2)}%</span>
-                            </div>
-                          </div>
-                          <div className="grid grid-cols-2 gap-4">
-                            <div className="text-center">
-                              <p className="text-slate-400 text-xs mb-1">{game.homeTeam}</p>
-                              <p className="text-2xl font-bold text-white">{(game.polymarketHomeProb * 100).toFixed(1)}¢</p>
-                              <p className="text-purple-300 text-sm">{(game.polymarketHomeProb * 100).toFixed(1)}%</p>
-                            </div>
-                            <div className="text-center">
-                              <p className="text-slate-400 text-xs mb-1">{game.awayTeam}</p>
-                              <p className="text-2xl font-bold text-white">{(game.polymarketAwayProb * 100).toFixed(1)}¢</p>
-                              <p className="text-purple-300 text-sm">{(game.polymarketAwayProb * 100).toFixed(1)}%</p>
                             </div>
                           </div>
                         </div>
@@ -659,7 +664,7 @@ export default function Home() {
 
         {/* Footer */}
         <footer className="mt-12 text-center text-slate-500 text-sm">
-          <p>Powered by Odds-API.io | Comparing Polymarket vs {result?.sportsbookName || 'Sportsbook'} odds</p>
+          <p>Powered by Odds-API.io | Polymarket = True Odds | Bet at {result?.sportsbookName || 'Rainbet'}</p>
         </footer>
       </div>
     </div>

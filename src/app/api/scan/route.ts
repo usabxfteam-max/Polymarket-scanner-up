@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-const API_KEY = process.env.ODDS_API_KEY || "47cd04006934b62c9bfcfc777983c3c92025a2e01d108b1278baf4f2042ff459";
+const API_KEY = process.env.ODDS_API_KEY || "4bbeaa37654379c01eaeb7149a9e33e32aa5a492d6c6a45564334a7805ca0920";
 const BASE_URL = "https://api.odds-api.io/v3";
 
 const SPORTS_CONFIG: Record<string, {
@@ -332,9 +332,11 @@ function analyzeGame(event: unknown, oddsData: unknown, polymarketName: string, 
   const polymarketHold = (polyHomeProb + polyAwayProb - 1) * 100;
   const sportsbookHold = (sportsbookHomeProb + sportsbookAwayProb - 1) * 100;
 
-  // Calculate edge (using raw sportsbook probabilities, no devigging)
-  const homeEdge = sportsbookHomeProb - polyHomeProb;
-  const awayEdge = sportsbookAwayProb - polyAwayProb;
+  // Calculate edge: Polymarket is the TRUSTED SOURCE (true odds)
+  // Edge = Polymarket prob - Sportsbook implied prob
+  // Positive edge means sportsbook is offering better odds than Polymarket's fair probability suggests
+  const homeEdge = polyHomeProb - sportsbookHomeProb;
+  const awayEdge = polyAwayProb - sportsbookAwayProb;
 
   const isValueBet = homeEdge >= edgeThreshold || awayEdge >= edgeThreshold;
   let valueSide: string | null = null;
