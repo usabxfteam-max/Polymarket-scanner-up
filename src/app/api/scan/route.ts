@@ -139,6 +139,7 @@ interface GameAnalysis {
   awayTeam: string;
   league: string;
   sport: string;
+  eventDate: string;
   polymarketHomeProb: number;
   polymarketAwayProb: number;
   sportsbookHomeProb: number;
@@ -295,6 +296,11 @@ function analyzeGame(event: unknown, oddsData: unknown, polymarketName: string, 
   const homeTeam = String(e.home || "Unknown");
   const awayTeam = String(e.away || "Unknown");
 
+  // Extract event date/time
+  const eventDate = e.commence_time ? String(e.commence_time) : 
+                    e.start_time ? String(e.start_time) :
+                    e.date ? String(e.date) : "";
+
   const leagueInfo = e.league as Record<string, unknown> | null;
   const leagueName = leagueInfo && typeof leagueInfo === "object" && "name" in leagueInfo
     ? String(leagueInfo.name)
@@ -351,6 +357,7 @@ function analyzeGame(event: unknown, oddsData: unknown, polymarketName: string, 
     awayTeam,
     league: leagueName,
     sport: sportName,
+    eventDate,
     polymarketHomeProb: polyHomeProb,
     polymarketAwayProb: polyAwayProb,
     sportsbookHomeProb,

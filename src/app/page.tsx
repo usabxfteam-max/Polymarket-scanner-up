@@ -7,13 +7,14 @@ import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Separator } from '@/components/ui/separator'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Play, TrendingUp, TrendingDown, Trophy, BarChart3, Zap, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react'
+import { Play, TrendingUp, TrendingDown, Trophy, BarChart3, Zap, RefreshCw, ChevronDown, ChevronUp, Calendar } from 'lucide-react'
 
 interface GameAnalysis {
   homeTeam: string
   awayTeam: string
   league: string
   sport: string
+  eventDate: string
   polymarketHomeProb: number
   polymarketAwayProb: number
   sportsbookHomeProb: number
@@ -204,6 +205,40 @@ const SPORTS_CATEGORIES = {
 
 // Flatten all sports for quick lookup
 const ALL_SPORTS = Object.values(SPORTS_CATEGORIES).flatMap(cat => cat.sports)
+
+// Format date helper
+function formatEventDate(dateStr: string): string {
+  if (!dateStr) return ''
+  try {
+    const date = new Date(dateStr)
+    const now = new Date()
+    const isToday = date.toDateString() === now.toDateString()
+    const tomorrow = new Date(now)
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    const isTomorrow = date.toDateString() === tomorrow.toDateString()
+    
+    const timeStr = date.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit',
+      hour12: true 
+    })
+    
+    if (isToday) {
+      return `Today ${timeStr}`
+    } else if (isTomorrow) {
+      return `Tomorrow ${timeStr}`
+    } else {
+      const dateStr = date.toLocaleDateString('en-US', { 
+        weekday: 'short', 
+        month: 'short', 
+        day: 'numeric' 
+      })
+      return `${dateStr} ${timeStr}`
+    }
+  } catch {
+    return dateStr
+  }
+}
 
 function formatAmericanOdds(decimal: number, raw: number): string {
   // If we have raw American odds, use them
@@ -518,7 +553,15 @@ export default function Home() {
                               {game.sport}
                             </Badge>
                           </div>
-                          <p className="text-slate-400">{game.league}</p>
+                          <div className="flex items-center gap-3">
+                            <p className="text-slate-400">{game.league}</p>
+                            {game.eventDate && (
+                              <div className="flex items-center gap-1 text-slate-500 text-sm">
+                                <Calendar className="w-3.5 h-3.5" />
+                                <span>{formatEventDate(game.eventDate)}</span>
+                              </div>
+                            )}
+                          </div>
                         </div>
 
                         <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
@@ -623,7 +666,15 @@ export default function Home() {
                             <p className="text-white font-medium">
                               {game.homeTeam} vs {game.awayTeam}
                             </p>
-                            <p className="text-slate-500 text-sm">{game.league}</p>
+                            <div className="flex items-center gap-3">
+                              <p className="text-slate-500 text-sm">{game.league}</p>
+                              {game.eventDate && (
+                                <div className="flex items-center gap-1 text-slate-500 text-xs">
+                                  <Calendar className="w-3 h-3" />
+                                  <span>{formatEventDate(game.eventDate)}</span>
+                                </div>
+                              )}
+                            </div>
                           </div>
                           <div className="flex items-center gap-6">
                             {/* Sportsbook Hold */}
